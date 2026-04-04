@@ -1,170 +1,122 @@
-# Kedro Plan: Sydney Traffic Congestion Prediction
+# Kedro Plan: Manufacturing Throughput Optimisation
 
 ## Summary
 
-Build a greenfield Kedro project that predicts 1-hour-ahead congestion class for Sydney road segments using historical batch traffic data and runs on an hourly batch cadence. The first production consumer is the internal ML team, so v1 should prioritize a clean experimentation workflow, reproducible pipelines, model evaluation, and operational monitoring over a polished public dashboard.
+Build a learning-first Kedro project that uses a public manufacturing dataset to recommend operating settings that improve throughput while respecting first-principles constraints. The project should teach Kedro structure, reproducible ML pipelines, and how simple operational logic can keep model recommendations realistic. The environment and dependency workflow should use `pyenv` for Python version management and `poetry` for packaging and dependencies.
 
 ## Implementation Changes
 
-1. Milestone 1: Project foundation and Kedro bootstrap
+1. Milestone 1: Kedro project foundation
 
-- Create a Kedro project in this repo with a package such as `traffic_analysis`.
-- Define environments for local, dev, and prod.
-- Set up a minimal data catalog structure for raw, intermediate, feature, model, prediction, and reporting datasets.
-- Establish naming conventions early:
-  - `raw_sydney_traffic`
-  - `validated_traffic`
-  - `road_segment_features`
-  - `congestion_labels`
-  - `trained_model`
-  - `hourly_predictions`
-  - `monitoring_metrics`
-- Add basic project docs that state the prediction target, spatial unit, cadence, and success criteria.
+- Create a greenfield Kedro project in this repo with a package such as `manufacturing_throughput`.
+- Set up the standard Kedro layout for `conf`, `data`, and `src`.
+- Standardize local setup around:
+  - `pyenv` to pin the Python version used for the project
+  - `poetry` to manage dependencies, virtual environments, and script entrypoints
+- Keep the project simple and reproducible rather than production-heavy.
+- Add documentation that explains the learning goals:
+  - learn Kedro pipelines and configuration
+  - learn throughput-oriented ML workflows
+  - learn how first-principles constraints guide recommendations
 
-2. Milestone 2: Data ingestion and Sydney scoping
+2. Milestone 2: Public dataset setup and data contract
 
-- Implement a raw-data ingestion pipeline for historical batch traffic data.
-- Define the required input schema:
-  - `timestamp`
-  - road segment identifier
-  - location or geometry reference
-  - traffic speed, travel time, volume, or delay fields
-- Add Sydney-specific filtering and validation:
-  - keep only Sydney road segments
-  - normalize timestamps to a single timezone
-  - remove duplicates and impossible values
-- Decide and document the canonical road-segment reference used throughout the project.
-- Output a trusted, cleaned dataset for downstream feature engineering.
+- Start from a public manufacturing or process dataset with:
+  - throughput or production-rate target
+  - controllable or operational input settings
+  - enough metadata to define feasible ranges or capacity-style constraints
+- Define a canonical input contract for the raw data:
+  - timestamp or batch identifier
+  - line, process, or station identifier if available
+  - controllable settings
+  - throughput target
+  - optional supporting process variables
+- Create a documented ingestion path for local experimentation.
 
-3. Milestone 3: Congestion target definition and feature engineering
+3. Milestone 3: Data preparation and feature engineering
 
-- Define congestion as a 3-class label for each road segment at each hour:
-  - `low`
-  - `medium`
-  - `high`
-- Choose a deterministic labeling rule from historical speed/travel-time delay relative to segment baseline.
-- Build feature pipelines for:
-  - lagged traffic conditions
-  - rolling-window statistics
-  - hour-of-day/day-of-week signals
-  - peak-period indicators
-  - segment-level historical baselines
-- Keep the first version batch-only and tabular; do not introduce streaming features or online stores.
-- Store training-ready feature tables and label tables as versioned Kedro outputs.
+- Build a Kedro data-engineering pipeline that:
+  - validates required columns
+  - cleans obvious null or impossible values
+  - separates controllable variables from context variables
+  - creates a training-ready feature table
+- Keep v1 features interpretable:
+  - current operating settings
+  - simple interactions if clearly useful
+  - optional lag or rolling signals only if the dataset is time-indexed
+- Preserve a clear distinction between:
+  - variables the model can recommend changing
+  - variables that describe context but should not be optimized directly
 
-4. Milestone 4: Model training, evaluation, and registry-ready packaging
+4. Milestone 4: Baseline throughput model
 
-- Start with a strong baseline classifier before trying heavier models.
-- Train on historical windows and evaluate with time-aware splits, not random splits.
-- Track metrics that match the classification problem:
-  - macro F1
-  - per-class precision/recall
-  - confusion matrix
-  - calibration quality if probabilities are used
-- Save model artifacts, training metadata, and feature schema together so inference can reproduce training assumptions.
-- Define acceptance criteria for promotion:
-  - model beats a simple historical baseline
-  - no class collapses
-  - feature schema matches inference schema
+- Train a baseline regression model that predicts throughput from the prepared features.
+- Start with a simple, explainable baseline before trying heavier models.
+- Evaluate on a holdout split and track:
+  - RMSE or MAE
+  - R-squared
+  - error behavior on high-throughput cases
+- Save the trained model and enough metadata to reproduce inference assumptions.
 
-5. Milestone 5: Batch inference and consumable outputs
+5. Milestone 5: First-principles-informed recommendation workflow
 
-- Build an hourly inference pipeline that scores the latest available segment-hour records.
-- Produce outputs tailored to the internal ML team:
-  - predictions by segment and hour
-  - top predicted congestion hotspots
-  - feature distributions for the scoring batch
-  - model version used
-- Keep serving offline first: write predictions to files/tables rather than building an API in v1.
+- Build a recommendation pipeline that proposes better controllable settings by scoring feasible candidates with the trained model.
+- Add lightweight first-principles checks grounded in operations logic:
+  - settings must remain within known feasible ranges
+  - derived throughput recommendations must not exceed a configured bottleneck capacity
+  - recommendations should remain close enough to observed operating regions to avoid obviously unrealistic jumps
+- Compare:
+  - unconstrained best-scoring candidates
+  - constraint-aware feasible recommendations
 
-6. Milestone 6: Monitoring and alerting
+6. Milestone 6: Reporting and learning outcomes
 
-- Add data-quality monitoring on every hourly run:
-  - row counts
-  - null rates
-  - unseen segment IDs
-  - missing expected hours
-  - schema drift
-- Add model monitoring after predictions:
-  - prediction class distribution drift
-  - feature drift vs training baseline
-  - delayed performance tracking once actual labels arrive
-- Define alert thresholds for:
-  - ingestion failure
-  - excessive missingness
-  - severe distribution drift
-  - degraded classification performance
-- Store monitoring outputs as datasets so they can be visualized later or wired into alerting tools.
-
-7. Milestone 7: Retraining workflow
-
-- Create a retraining pipeline separate from hourly inference.
-- Use a scheduled retraining cadence, with a default of weekly retraining using the latest validated historical data.
-- Add trigger conditions that can force retraining earlier:
-  - sustained feature drift
-  - sustained prediction distribution drift
-  - performance drop after labels arrive
-- Require automatic evaluation against the currently deployed model before replacement.
-- Promote a new model only if it passes predefined acceptance thresholds and schema checks.
-
-8. Milestone 8: Production hardening
-
-- Add reproducibility and operational controls:
-  - parameterized date windows
-  - deterministic train/test splits
-  - environment-specific config
-  - run metadata logging
-- Add failure handling for missing batches and late-arriving labels.
-- Document the runbook:
-  - how ingestion runs
-  - how training runs
-  - how inference runs
-  - what monitoring signals mean
-  - when retraining is triggered
+- Produce outputs that help a learner inspect what happened:
+  - validation summary
+  - model metrics
+  - recommended settings
+  - reasons candidate settings were rejected by constraints
+- Document:
+  - what each Kedro pipeline does
+  - which rules come from first principles rather than pure ML
+  - tradeoffs between predictive performance and operational plausibility
 
 ## Public Interfaces and Data Contracts
 
-- Raw input contract: batch traffic records keyed by timestamp and road segment.
-- Validated dataset contract: cleaned Sydney-only records with canonical segment IDs and normalized timestamps.
-- Label contract: one congestion class per segment-hour for training windows.
-- Prediction output contract: segment-hour prediction records with predicted class, probability, model version, and run ID.
-- Monitoring output contract: run-level quality checks, drift metrics, and delayed performance metrics.
+- Raw input contract: tabular manufacturing records with a throughput target and identifiable controllable settings.
+- Prepared dataset contract: cleaned feature table plus a declared set of controllable columns.
+- Model artifact contract: trained regression model with feature-column metadata.
+- Recommendation output contract: candidate settings with predicted throughput, feasibility flag, and rejection reason when infeasible.
 
 ## Test Plan
 
 - Data tests:
-  - Sydney filter excludes out-of-scope records
-  - timestamps normalize correctly
-  - impossible traffic values are rejected or flagged
-- Feature tests:
-  - lag features do not leak future information
-  - rolling windows use only past data
-  - feature schema is identical between train and inference
+  - required columns exist
+  - controllable-setting ranges are enforced
+  - invalid throughput rows are removed or flagged
 - Model tests:
-  - time-based split logic is correct
-  - baseline comparison is computed consistently
-  - class predictions remain within the allowed label set
-- Pipeline tests:
-  - hourly inference succeeds on a minimal batch
-  - retraining pipeline produces a candidate model and evaluation report
-  - monitoring pipeline emits alerts when thresholds are breached
+  - training succeeds on a minimal sample
+  - predictions are numeric and finite
+  - evaluation metrics are produced consistently
+- Recommendation tests:
+  - infeasible candidates are rejected
+  - feasible candidates are ranked by predicted throughput
+  - bottleneck-capacity limits are respected
 
 ## Milestone Sequence
 
-1. Kedro project bootstrap and environment/config structure
-2. Historical Sydney traffic ingestion and validation
-3. Congestion labeling and feature engineering
+1. Kedro bootstrap and learning-oriented repo structure
+2. Public dataset ingestion and validation
+3. Feature engineering for throughput prediction
 4. Baseline model training and evaluation
-5. Hourly batch inference outputs
-6. Data and model monitoring
-7. Scheduled and trigger-based retraining
-8. Production runbook and hardening
+5. Constraint-aware recommendation workflow
+6. Reporting and documentation
 
 ## Assumptions and Defaults
 
-- Sydney traffic data is available in historical batch form before any live integration.
-- The first model predicts 1-hour-ahead congestion class, not continuous travel time.
-- The first spatial unit is road segment, not suburb or corridor.
-- The first production consumer is the internal ML team, so v1 emphasizes reproducibility and monitoring over a public-facing app.
-- Retraining defaults to weekly, while inference runs hourly.
-- v1 stays fully batch-oriented; no streaming or low-latency online serving is included.
+- The repo remains a learning exercise, not a production application.
+- The first version uses one public dataset and one baseline model.
+- The recommendation task is constrained optimisation over observed or user-specified operating settings, not control of a live system.
+- First-principles guidance stays lightweight and interpretable, using feasibility rules and bottleneck-style limits rather than full simulation.
+- The initial workflow is batch-oriented and file-based.
+- Python environment management should be part of the learning exercise, with `pyenv` and `poetry` treated as required project setup rather than optional tooling.
