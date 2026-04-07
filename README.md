@@ -1,48 +1,74 @@
-# Manufacturing Throughput Optimisation with Kedro
+# Geospatial Air Quality Analysis with Kedro
 
-This repo is set up as a learning exercise for three topics:
+This repo is a learning-oriented Kedro project for exploring public geospatial data with a reproducible Python workflow built around `pyenv`, `poetry`, and `kedro`.
 
-- Kedro for reproducible ML pipelines
-- throughput optimisation in a manufacturing setting
-- first-principles-informed ML
+The project uses the Open-Meteo Geocoding API and Air Quality API to build a small end-to-end pipeline that:
 
-The project structure is intentionally small. It gives you a working Kedro-shaped scaffold with enough code to inspect how data engineering, modeling, and recommendation stages fit together.
+- resolves a list of cities into latitude/longitude coordinates
+- downloads hourly air-quality measurements for those locations
+- prepares features for unsupervised and supervised analysis
+- runs `KMeans` clustering on location-level summaries
+- trains a baseline classifier that predicts whether air quality crosses a configurable AQI threshold
 
 ## Learning goals
 
-- Understand how Kedro organizes nodes, pipelines, parameters, and datasets
-- Train a baseline model that predicts throughput
-- Add simple first-principles constraints so recommendations remain operationally plausible
+- Understand how Kedro organizes modular pipelines and data catalogs
+- Practice basic geospatial feature engineering with latitude and longitude data
+- Compare an unsupervised task (`KMeans`) with a simple classification problem
+- Keep the environment reproducible with `pyenv` and `poetry`
 
-## Proposed workflow
+## Tooling
 
-1. Place a public manufacturing dataset in `data/01_raw/manufacturing_throughput.csv`
-2. Update `conf/base/parameters.yml` to match the dataset columns
-3. Run the data engineering, modeling, and recommendation pipelines
-4. Compare unconstrained and constrained recommendations
+- `pyenv` manages the Python version
+- `poetry` manages dependencies and the virtual environment
+- `kedro` organizes the project structure and pipeline execution
 
-## Project layout
+## Setup
 
-- `src/manufacturing_throughput/pipelines/data_engineering`
-  Cleans raw data, validates required columns, and prepares features.
-- `src/manufacturing_throughput/pipelines/data_science`
-  Trains a baseline regression model and computes evaluation metrics.
-- `src/manufacturing_throughput/pipelines/recommendation`
-  Scores candidate operating settings and applies feasibility checks.
+1. Install the Python version in [`.python-version`](/C:/Users/61422/Desktop/OMSCS/projects/MLops/traffic-analysis/.python-version).
+2. Create the environment with `poetry install`.
+3. Activate the environment with `poetry shell` or run commands through `poetry run`.
 
-## Dataset guidance
+## Run the pipeline
 
-Use a public manufacturing or industrial process dataset that includes:
+Run the default pipeline:
 
-- a throughput-like target
-- controllable settings or process variables
-- enough context to define simple feasible ranges
+```bash
+poetry run kedro run
+```
 
-The current code assumes CSV input and a supervised regression target, but the parameters are meant to be adapted as you learn the dataset.
+The default parameters pull a small set of cities and a short history window to keep the first run manageable.
 
-## Suggested next learning steps
+## Pipeline overview
 
-1. Read [plan.md](/C:/Users/61422/Desktop/OMSCS/projects/MLops/traffic-analysis/plan.md) and map each milestone to the code scaffold.
-2. Inspect [pipeline_registry.py](/C:/Users/61422/Desktop/OMSCS/projects/MLops/traffic-analysis/src/manufacturing_throughput/pipeline_registry.py) to see how Kedro composes pipelines.
-3. Trace the data flow through the node functions before changing anything.
-4. Replace the default assumptions in `parameters.yml` with choices based on your dataset.
+- `ingestion`
+  Fetches geocoding and air-quality data from Open-Meteo.
+- `data_engineering`
+  Validates, cleans, and reshapes raw API data into modeling tables.
+- `data_science`
+  Produces cluster assignments and baseline classification metrics.
+
+## Key configuration
+
+Most learning-time changes should happen in [parameters.yml](/C:/Users/61422/Desktop/OMSCS/projects/MLops/traffic-analysis/conf/base/parameters.yml):
+
+- change the list of locations
+- add or remove pollutant variables
+- adjust the AQI threshold for classification
+- tune the number of clusters
+
+## Outputs
+
+After a run, Kedro writes:
+
+- geocoded locations
+- hourly air-quality observations
+- location-level clustering features and cluster assignments
+- row-level classification features
+- classifier metrics and sample predictions
+
+## Notes
+
+- The project depends on public APIs, so a pipeline run needs network access.
+- The first version favors clear, inspectable transformations over heavy modeling or mapping.
+- Read [plan.md](/C:/Users/61422/Desktop/OMSCS/projects/MLops/traffic-analysis/plan.md) for the implementation roadmap and project framing.

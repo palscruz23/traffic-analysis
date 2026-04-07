@@ -1,1 +1,11 @@
-.venv
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+data/01_raw/*
+data/02_intermediate/*
+data/03_primary/*
+data/04_feature/*
+data/06_models/*
+data/08_reporting/*
+!data/**/.gitkeep
